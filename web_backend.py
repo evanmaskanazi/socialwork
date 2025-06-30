@@ -256,7 +256,7 @@ def index():
     """Serve the main assessment page with proper port configuration"""
     try:
         # Read the original client.html
-        with open('client.html', 'r', encoding='utf-8') as f:
+        with open('clientold.html', 'r', encoding='utf-8') as f:
             html_content = f.read()
 
         # Update the title
@@ -536,39 +536,62 @@ def internal_error(error):
         'message': 'An unexpected error occurred'
     }), 500
 
+
 if __name__ == '__main__':
-    print("=" * 80)
-    print(f"{CUSTOM_BRAND.upper()} - ASSESSMENT PLATFORM")
-    print("=" * 80)
-    print("🏥 Starting custom web server...")
-    print(f"📍 Server will be available at: http://localhost:{CUSTOM_PORT}")
-    print(f"📝 Interactive website: http://localhost:{CUSTOM_PORT}")
-    print(f"🎯 Brand: {CUSTOM_BRAND}")
-    print(f"🌟 Title: {CUSTOM_TITLE}")
-    print("🔗 API endpoints:")
-    print(f"   POST /api/assess - Submit patient assessment")
-    print(f"   POST /api/validate - Validate individual fields")
-    print(f"   GET /api/countries - Get available countries")
-    print(f"   GET /api/emergency-resources/<country> - Get emergency contacts")
-    print("=" * 80)
-    print("💡 IMPORTANT: Make sure to stop any other servers running on port 5000!")
-    print(f"🚀 Access your platform at: http://localhost:{CUSTOM_PORT}")
-    print("=" * 80)
+    # Get port from environment (Render sets this automatically)
+    port = int(os.environ.get('PORT', CUSTOM_PORT))
+    is_production = os.environ.get('RENDER') is not None
 
-    # Automatically open browser after a short delay
-    def open_browser():
-        try:
-            webbrowser.open(f'http://localhost:{CUSTOM_PORT}')
-            print(f"🌐 Browser opened automatically to http://localhost:{CUSTOM_PORT}")
-        except Exception as e:
-            print(f"Could not open browser: {e}")
+    if is_production:
+        # Production settings for Render
+        print("=" * 80)
+        print(f"{CUSTOM_BRAND.upper()} - PRODUCTION DEPLOYMENT")
+        print("=" * 80)
+        print("🌐 Running on Render...")
+        print(f"🔗 Service available on assigned port {port}")
+        print("=" * 80)
 
-    # Start browser opener in separate thread
-    threading.Timer(3.0, open_browser).start()
+        app.run(
+            host='0.0.0.0',  # Listen on all interfaces for Render
+            port=port,  # Use Render's assigned port
+            debug=False  # Disable debug in production
+        )
+    else:
+        # Local development settings
+        print("=" * 80)
+        print(f"{CUSTOM_BRAND.upper()} - DEVELOPMENT MODE")
+        print("=" * 80)
+        print("🏥 Starting local development server...")
+        print(f"📍 Server will be available at: http://localhost:{CUSTOM_PORT}")
+        print(f"📝 Interactive website: http://localhost:{CUSTOM_PORT}")
+        print(f"🎯 Brand: {CUSTOM_BRAND}")
+        print(f"🌟 Title: {CUSTOM_TITLE}")
+        print("🔗 API endpoints:")
+        print(f"   POST /api/assess - Submit patient assessment")
+        print(f"   POST /api/validate - Validate individual fields")
+        print(f"   GET /api/countries - Get available countries")
+        print(f"   GET /api/emergency-resources/<country> - Get emergency contacts")
+        print("=" * 80)
+        print("💡 IMPORTANT: Make sure to stop any other servers running on port 5000!")
+        print(f"🚀 Access your platform at: http://localhost:{CUSTOM_PORT}")
+        print("=" * 80)
 
-    # Run the Flask app on the custom port
-    app.run(
-        host='127.0.0.1',  # Localhost only
-        port=CUSTOM_PORT,  # Use the custom port
-        debug=True         # Enable debug mode
-    )
+
+        # Automatically open browser after a short delay
+        def open_browser():
+            try:
+                webbrowser.open(f'http://localhost:{CUSTOM_PORT}')
+                print(f"🌐 Browser opened automatically to http://localhost:{CUSTOM_PORT}")
+            except Exception as e:
+                print(f"Could not open browser: {e}")
+
+
+        # Start browser opener in separate thread
+        threading.Timer(3.0, open_browser).start()
+
+        # Run the Flask app on the custom port
+        app.run(
+            host='127.0.0.1',  # Localhost only for development
+            port=CUSTOM_PORT,  # Use the custom port
+            debug=True  # Enable debug mode for development
+        )
