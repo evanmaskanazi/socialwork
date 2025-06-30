@@ -1,6 +1,7 @@
 """
 Python Web Backend Integration for Global Social Worker Chatbot
 FIXED VERSION - Properly changes port and keeps all functionality working
+INCLUDES: Solution 1 (absolute path) + Solution 2 (debugging)
 """
 
 from flask import Flask, request, jsonify, render_template_string, send_from_directory
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 CUSTOM_PORT = 5000
 CUSTOM_TITLE = "Professional Social Worker Assessment"
 CUSTOM_BRAND = "SocialWorker Pro"
+
 
 class WebSocialWorkerChatbot:
     """
@@ -250,14 +252,48 @@ class WebSocialWorkerChatbot:
 # Initialize the web chatbot
 web_chatbot = WebSocialWorkerChatbot()
 
+
 # Main route - Serve the interactive website
 @app.route('/')
 def index():
-    """Serve the main assessment page with proper port configuration"""
+    """Serve the main assessment page with proper port configuration and debugging"""
+
+    # SOLUTION 2: Debug information
+    print(f"🔍 DEBUG - Current working directory: {os.getcwd()}")
+    print(f"🔍 DEBUG - Files in current directory: {os.listdir('.')}")
+    print(f"🔍 DEBUG - __file__ location: {os.path.abspath(__file__)}")
+
+    # SOLUTION 1: Use absolute path to find client.html
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    html_file_path = os.path.join(current_dir, 'client.html')
+
+    print(f"🔍 DEBUG - Looking for client.html at: {html_file_path}")
+    print(f"🔍 DEBUG - File exists: {os.path.exists(html_file_path)}")
+
+    # Try multiple possible paths
+    possible_paths = [
+        html_file_path,  # Absolute path
+        'client.html',  # Relative path
+        './client.html',  # Current directory
+        os.path.join('.', 'client.html')  # Explicit current directory
+    ]
+
+    print(f"🔍 DEBUG - Trying paths: {possible_paths}")
+
     try:
-        # Read the original client.html
-        with open('clientold.html', 'r', encoding='utf-8') as f:
-            html_content = f.read()
+        html_content = None
+        found_path = None
+
+        for path in possible_paths:
+            if os.path.exists(path):
+                print(f"✅ Found client.html at: {path}")
+                with open(path, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+                found_path = path
+                break
+
+        if html_content is None:
+            raise FileNotFoundError("client.html not found in any expected location")
 
         # Update the title
         html_content = html_content.replace(
@@ -271,23 +307,34 @@ def index():
             f'<h1>🏥 {CUSTOM_BRAND}</h1>'
         )
 
-        # CRITICAL FIX: Update API URL to use the correct port
-        html_content = html_content.replace(
-            "API_BASE_URL = 'http://localhost:5000/api';",
-            f"API_BASE_URL = 'http://localhost:{CUSTOM_PORT}/api';"
-        )
+        # Determine the correct API URL based on environment
+        if os.environ.get('RENDER'):
+            # Running on Render
+            api_base_url = f"{request.scheme}://{request.host}/api"
+            print(f"🌐 Production mode - API URL: {api_base_url}")
+        else:
+            # Running locally
+            api_base_url = f"http://localhost:{CUSTOM_PORT}/api"
+            print(f"🏠 Development mode - API URL: {api_base_url}")
 
-        # Also fix any hardcoded references
+        # Replace the API URL in the HTML
+        old_api_line = "API_BASE_URL = 'http://localhost:5000/api';"
+        new_api_line = f"API_BASE_URL = '{api_base_url}';"
+        html_content = html_content.replace(old_api_line, new_api_line)
+
+        # Also replace any other hardcoded references
         html_content = html_content.replace(
             'http://localhost:5000/api',
-            f'http://localhost:{CUSTOM_PORT}/api'
+            api_base_url
         )
 
-        logger.info(f"Successfully serving {CUSTOM_BRAND} from localhost:{CUSTOM_PORT}")
+        logger.info(f"✅ Successfully serving {CUSTOM_BRAND} from {found_path} with API URL: {api_base_url}")
         return html_content
 
     except FileNotFoundError:
-        logger.warning("client.html not found - serving fallback page")
+        logger.warning("❌ client.html not found - serving fallback page")
+        print(f"🔍 DEBUG - Available files in current directory: {[f for f in os.listdir('.') if f.endswith('.html')]}")
+
         return f"""
         <!DOCTYPE html>
         <html>
@@ -326,6 +373,16 @@ def index():
                     margin: 20px 0;
                     border-left: 4px solid #f44336;
                 }}
+                .debug {{
+                    color: #1976d2;
+                    background: #e3f2fd;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    border-left: 4px solid #2196f3;
+                    font-family: monospace;
+                    font-size: 12px;
+                }}
                 .solution {{
                     color: #2e7d32;
                     background: #e8f5e8;
@@ -340,27 +397,41 @@ def index():
             <div class="container">
                 <div class="header">
                     <h1>🏥 {CUSTOM_BRAND}</h1>
-                    <p>Running on Port {CUSTOM_PORT}</p>
+                    <p>Debug Mode - File Not Found</p>
                 </div>
 
                 <div class="content">
                     <div class="error">
                         <h2>❌ Interface File Missing</h2>
-                        <p><strong>client.html is not found in the project directory</strong></p>
+                        <p><strong>client.html is not found in the expected locations</strong></p>
+                    </div>
+
+                    <div class="debug">
+                        <h3>🔍 Debug Information:</h3>
+                        <p><strong>Current working directory:</strong> {os.getcwd()}</p>
+                        <p><strong>Files in directory:</strong> {', '.join(os.listdir('.'))}</p>
+                        <p><strong>Tried paths:</strong></p>
+                        <ul>
+                            {''.join([f'<li>{path} - {"✅ Found" if os.path.exists(path) else "❌ Not found"}</li>' for path in possible_paths])}
+                        </ul>
+                        <p><strong>HTML files found:</strong> {', '.join([f for f in os.listdir('.') if f.endswith('.html')]) or 'None'}</p>
                     </div>
 
                     <div class="solution">
                         <h3>✅ To Fix:</h3>
                         <ol>
-                            <li>Add client.html to your project folder</li>
-                            <li>Restart the server</li>
-                            <li>Refresh this page</li>
+                            <li>Ensure client.html is in your GitHub repository</li>
+                            <li>Check the file is in the same directory as web_backend.py</li>
+                            <li>Verify the filename is exactly "client.html" (lowercase)</li>
+                            <li>Commit and push the file to GitHub</li>
+                            <li>Render will automatically redeploy</li>
                         </ol>
                     </div>
 
                     <div style="text-align: center; margin-top: 30px;">
                         <h3>🔗 Backend Status: ✅ Running</h3>
-                        <p>API endpoints are available on port {CUSTOM_PORT}</p>
+                        <p>API endpoints are available and working</p>
+                        <p><strong>Working directory:</strong> {os.getcwd()}</p>
                     </div>
                 </div>
             </div>
@@ -369,7 +440,8 @@ def index():
         """
     except Exception as e:
         logger.error(f"Error serving index page: {str(e)}")
-        return f"<h1>Server Error</h1><p>Error: {str(e)}</p>", 500
+        return f"<h1>Server Error</h1><p>Error: {str(e)}</p><p>Debug: {os.getcwd()}</p>", 500
+
 
 # API Routes
 @app.route('/api/assess', methods=['POST'])
@@ -403,6 +475,7 @@ def assess_patient():
             'error': 'Server error',
             'message': str(e)
         }), 500
+
 
 @app.route('/api/validate', methods=['POST'])
 def validate_field():
@@ -439,6 +512,7 @@ def validate_field():
             'error': str(e)
         }), 500
 
+
 @app.route('/api/countries', methods=['GET'])
 def get_countries():
     """Get list of available countries"""
@@ -462,6 +536,7 @@ def get_countries():
             'success': False,
             'error': str(e)
         }), 500
+
 
 @app.route('/api/emergency-resources/<country_code>', methods=['GET'])
 def get_emergency_resources(country_code):
@@ -488,6 +563,7 @@ def get_emergency_resources(country_code):
             'success': False,
             'error': str(e)
         }), 500
+
 
 @app.route('/api/save-assessment', methods=['POST'])
 def save_assessment():
@@ -519,6 +595,7 @@ def save_assessment():
             'error': str(e)
         }), 500
 
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
@@ -527,6 +604,7 @@ def not_found(error):
         'error': 'Endpoint not found',
         'message': 'The requested resource was not found'
     }), 404
+
 
 @app.errorhandler(500)
 def internal_error(error):
@@ -549,6 +627,7 @@ if __name__ == '__main__':
         print("=" * 80)
         print("🌐 Running on Render...")
         print(f"🔗 Service available on assigned port {port}")
+        print(f"🔍 Debug mode enabled for file location troubleshooting")
         print("=" * 80)
 
         app.run(
